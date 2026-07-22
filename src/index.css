@@ -78,48 +78,20 @@ textarea,
   animation: pulse-soft 1.6s ease-in-out infinite;
 }
 
-/* Practice picker bubbles. On hover the bubble grows and its neighbors
-   part to make room: same-row siblings slide sideways, adjacent rows shift
-   away. Scale/translate are discrete properties so these compose with the
-   Tailwind utilities on the same elements. */
-.bubble-row {
-  transition: translate 0.25s ease;
-}
-
-@media (hover: hover) {
-  .bubble:hover {
-    scale: 1.3;
-    z-index: 20;
-    box-shadow: 0 20px 45px -12px rgb(0 0 0 / 0.55);
-  }
-  .bubble-row .bubble:hover ~ .bubble {
-    translate: 1.5rem 0;
-  }
-  .bubble-row .bubble:has(~ .bubble:hover) {
-    translate: -1.5rem 0;
-  }
-  .bubble-grid .bubble-row:has(.bubble:hover) + .bubble-row {
-    translate: 0 1.25rem;
-  }
-  .bubble-grid .bubble-row:has(+ .bubble-row .bubble:hover) {
-    translate: 0 -1.25rem;
-  }
-}
-
-/* Staggered entrance; `to` omits scale so picked bubbles settle into
-   their own utility scale without a jump. */
+/* Practice-picker bubbles: a soft, staggered entrance. */
 @keyframes bubble-in {
   from {
     opacity: 0;
-    scale: 0.5;
+    scale: 0.85;
   }
   to {
     opacity: 1;
+    scale: 1;
   }
 }
 
 .animate-bubble-in {
-  animation: bubble-in 0.35s ease-out backwards;
+  animation: bubble-in 0.3s ease-out backwards;
 }
 
 @media (prefers-reduced-motion: reduce) {

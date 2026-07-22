@@ -356,6 +356,86 @@ export function practiceOptions(primary: Category): PracticeOption[] {
   return out;
 }
 
+// ---------------------------------------------------------------------------
+// Relevance ranking. The picker shows one ordered pool drawn from every life
+// area, sorted so the practices closest to the user's own words surface first.
+// This is what makes the bubbles feel "in tune" with what they typed rather
+// than a generic category dump.
+// ---------------------------------------------------------------------------
+
+const STOPWORDS = new Set([
+  "want", "would", "like", "the", "and", "for", "with", "that", "this", "some",
+  "more", "less", "get", "getting", "got", "start", "stop", "become", "becoming",
+  "being", "have", "having", "make", "myself", "life", "day", "days", "daily",
+  "really", "very", "just", "into", "able", "better", "good", "help", "need",
+  "want", "feel", "feeling", "every", "everyday", "you", "your",
+]);
+
+function tokenize(s: string): string[] {
+  const matches = s.toLowerCase().match(/[a-z]+/g) ?? [];
+  return matches.filter((t) => t.length > 2 && !STOPWORDS.has(t));
+}
+
+// Every category whose keywords (or reframes) fire for this input — a goal can
+// legitimately touch several areas ("get fit and manage money").
+function matchedCategories(input: string): Set<Category> {
+  const set = new Set<Category>();
+  for (const [cat, t] of Object.entries(TEMPLATES) as [Category, CategoryTemplate][]) {
+    if (cat !== "general" && t.keywords.test(input)) set.add(cat);
+  }
+  const reframe = REFRAMES.find((r) => r.pattern.test(input));
+  if (reframe) set.add(reframe.category);
+  return set;
+}
+
+// Every practice across all areas, deduped by title.
+function allOptions(): PracticeOption[] {
+  const seen = new Set<string>();
+  const out: PracticeOption[] = [];
+  for (const [category, t] of Object.entries(TEMPLATES) as [Category, CategoryTemplate][]) {
+    for (const habit of [...t.habits, ...t.alternates]) {
+      if (seen.has(habit.title)) continue;
+      seen.add(habit.title);
+      out.push({ habit, category });
+    }
+  }
+  return out;
+}
+
+function scoreOption(
+  inputTokens: string[],
+  hits: Set<Category>,
+  option: PracticeOption,
+  primary: Category,
+): number {
+  const words = new Set(tokenize(`${option.habit.title} ${option.habit.why}`));
+  let score = 0;
+  for (const tok of inputTokens) {
+    if (words.has(tok)) score += 4; // direct word match — "read", "sleep", "save"
+    else {
+      for (const w of words) {
+        if (w.startsWith(tok) || tok.startsWith(w)) {
+          score += 2; // light stem match — "running" ~ "run"
+          break;
+        }
+      }
+    }
+  }
+  if (option.category === primary) score += 3;
+  else if (hits.has(option.category)) score += 2;
+  return score;
+}
+
+// Options across every life area, ranked most-relevant-first for this input.
+export function rankedPracticeOptions(input: string, primary: Category): PracticeOption[] {
+  const inputTokens = tokenize(input);
+  const hits = matchedCategories(input);
+  return allOptions()
+    .map((option, idx) => ({ option, idx, score: scoreOption(inputTokens, hits, option, primary) }))
+    .sort((a, b) => b.score - a.score || a.idx - b.idx)
+    .map((x) => x.option);
+}
+
 export function alternateHabit(category: Category, excludeTitles: string[]): HabitDraft {
   const t = TEMPLATES[category];
   const pool = [...t.alternates, ...t.habits].filter((x) => !excludeTitles.includes(x.title));
